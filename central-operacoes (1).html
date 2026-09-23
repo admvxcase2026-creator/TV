@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Central de Operações — VX Case</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📡</text></svg>">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:100%;height:100%;overflow:hidden;background:#0a0b0e;color:#e6e8ec;font-family:'IBM Plex Sans',sans-serif}
+  .mono{font-family:'IBM Plex Mono',monospace}
+  .disp{font-family:'Space Grotesk',sans-serif}
+
+  #app{width:100%;height:100vh;display:flex;flex-direction:column}
+
+  /* ===== CABEÇALHO ===== */
+  header{height:64px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 32px;border-bottom:1px solid #1c2028;background:#0d0f14}
+  .brand{display:flex;align-items:center;gap:16px}
+  .brand .bar{width:8px;height:28px;background:#3b82f6;border-radius:2px}
+  .brand h1{font-size:22px;font-weight:700;letter-spacing:1px}
+  .brand .tag{font-family:'IBM Plex Mono',monospace;font-size:12px;color:#6b7280;background:#161920;border:1px solid #232833;border-radius:5px;padding:3px 9px}
+  .hdr-right{display:flex;align-items:center;gap:22px}
+  .status-row{display:flex;gap:14px}
+  .status-item{display:flex;align-items:center;gap:6px;font-size:12px;color:#8b92a0}
+  .dot{width:7px;height:7px;border-radius:50%;display:inline-block}
+  .dot.on{background:#22c55e;box-shadow:0 0 6px #22c55e88}
+  .dot.off{background:#ef4444;box-shadow:0 0 6px #ef444488}
+  .divider{width:1px;height:22px;background:#232833}
+  .clock-box{text-align:right}
+  .live-badge{display:flex;align-items:center;gap:7px;font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;color:#3b82f6;background:#111827;border:1px solid #1e2937;border-radius:5px;padding:5px 12px}
+  .live-dot{width:6px;height:6px;border-radius:50%;background:#3b82f6;box-shadow:0 0 6px #3b82f688;animation:pulse 1.6s infinite}
+  .clock{font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600;letter-spacing:1px}
+  .datestr{font-size:11px;color:#6b7280;margin-top:1px}
+
+  /* atraso — badge fixo no cabeçalho, sempre visível não importa a tela */
+  .atraso-badge{display:none;align-items:center;gap:8px;background:#2a0f11;border:1px solid #5a1f22;border-radius:6px;padding:6px 14px}
+  .atraso-badge.show{display:flex}
+  .atraso-badge .adot{width:8px;height:8px;border-radius:50%;background:#ef4444;box-shadow:0 0 8px #ef4444aa;animation:pulse 1.2s infinite}
+  .atraso-badge .anum{font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700;color:#ef4444}
+  .atraso-badge .albl{font-size:11px;color:#f0a3a3;letter-spacing:.4px}
+
+  /* ===== FAIXA DE ALARME (2h) — fica acima do palco, sempre visível quando ativa ===== */
+  #alarme-faixa{display:none;flex-shrink:0;background:#3a0d10;border-bottom:2px solid #ef4444;padding:10px 32px;align-items:center;gap:14px}
+  #alarme-faixa.show{display:flex}
+  #alarme-faixa .adot{width:10px;height:10px;border-radius:50%;background:#ef4444;box-shadow:0 0 12px #ef4444cc;animation:pulse 1s infinite;flex-shrink:0}
+  #alarme-faixa .atitulo{font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;letter-spacing:.8px;color:#ff6b6b;flex-shrink:0}
+  #alarme-faixa .atxt{font-size:13px;color:#ffd7d7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  /* ===== TELAS ===== */
+  #stage{flex:1;min-height:0;position:relative;padding:20px 28px 0}
+  .tela{position:absolute;inset:20px 28px 0;opacity:0;pointer-events:none;transition:opacity .6s ease;display:flex;flex-direction:column;gap:16px}
+  .tela.ativa{opacity:1;pointer-events:auto}
+
+  .tela-header{display:flex;align-items:baseline;gap:14px;flex-shrink:0}
+  .tela-titulo{font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:700;letter-spacing:.5px}
+  .tela-sub{font-size:13px;color:#6b7280}
+
+  .kpi-row{display:grid;gap:14px;flex-shrink:0}
+  .kpi-row.n3{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .kpi-row.n4{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .kpi{background:#12141a;border:1px solid #1f232b;border-radius:10px;padding:18px 22px}
+  .kpi .lbl{font-size:12px;color:#8b92a0;letter-spacing:.5px;font-weight:600}
+  .kpi .val{font-family:'Space Grotesk',sans-serif;font-size:52px;font-weight:700;line-height:1.1;margin-top:8px}
+  .kpi .sub{font-size:11px;margin-top:4px}
+  .kpi.warn{background:#1a1710;border-color:#3a331a}
+  .kpi.warn .val{color:#eab308}
+  .kpi.crit{background:#1a1113;border-color:#3a1d20}
+  .kpi.crit .val{color:#ef4444}
+  .kpi.risk{background:#1a140f;border-color:#3a2a1a}
+  .kpi.risk .val{color:#f97316}
+
+  .painel{background:#12141a;border:1px solid #1f232b;border-radius:10px;padding:20px 24px;display:flex;flex-direction:column;min-height:0;flex:1}
+  .painel h2{font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700;letter-spacing:.5px;flex-shrink:0;margin-bottom:14px}
+  .painel .sub-count{font-size:11px;color:#6b7280;font-weight:400}
+  .lista{display:flex;flex-direction:column;gap:9px;overflow:hidden}
+
+  /* DEMANDAS — linhas maiores, atraso mais visível */
+  .demanda-row{display:grid;grid-template-columns:80px 1fr 150px 150px 170px;gap:14px;align-items:center;padding:14px 18px;border-radius:8px;border:1px solid #232833;background:#161920}
+  .demanda-row.atrasada{background:#1f1013;border-color:#5a1f22;border-left:4px solid #ef4444}
+  .demanda-row.hoje{background:#1a1710;border-color:#3a331a;border-left:4px solid #eab308}
+  .demanda-row .cod{font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#8b92a0}
+  .demanda-row .tit{font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .demanda-row .setor,.demanda-row .resp{font-size:12px;color:#8b92a0}
+  .demanda-row .tempo{font-size:15px;font-weight:700;text-align:right}
+  .t-atrasada{color:#ef4444;font-size:16px}
+  .t-hoje{color:#eab308}
+  .t-normal{color:#8b92a0;font-weight:600}
+
+  /* ENVIOS — cards maiores */
+  .envio-card{padding:16px 20px;border-radius:9px;border:1px solid #232833;background:#161920}
+  .envio-card.critico{background:#1f1013;border-color:#5a1f22;border-left:4px solid #ef4444}
+  .envio-card.risco{background:#1a140f;border-color:#3a2a1a;border-left:4px solid #f97316}
+  .envio-topo{display:flex;justify-content:space-between;align-items:center}
+  .envio-nome{font-size:16px;font-weight:700}
+  .envio-sel{font-size:11px;font-weight:700;padding:4px 10px;border-radius:4px;letter-spacing:.6px}
+  .sel-critico{background:#ef4444;color:#0a0b0e}
+  .sel-risco{background:#f97316;color:#0a0b0e}
+  .envio-info{font-size:13px;color:#8b92a0;margin-top:5px}
+  .envio-dias{font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:700;color:#ef4444}
+
+  .barra-item{margin-bottom:2px}
+  .barra-topo{display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px}
+  .barra-nome{font-weight:600}
+  .barra-val{font-family:'IBM Plex Mono',monospace;color:#8b92a0}
+  .barra-trilha{height:9px;background:#1f232b;border-radius:4px;overflow:hidden}
+  .barra-fill{height:100%;background:#3b82f6;transition:width .8s ease}
+
+  .setor-row{margin-bottom:6px}
+  .setor-topo{display:flex;justify-content:space-between;font-size:15px;margin-bottom:6px}
+  .setor-nome{font-weight:600}
+  .setor-qtd{font-family:'IBM Plex Mono',monospace;color:#8b92a0}
+  .setor-detail{font-size:11px;color:#6b7280;margin-top:2px}
+  .setor-trilha{height:16px;background:#1f232b;border-radius:5px;overflow:hidden}
+  .setor-fill{height:100%;background:#3b82f6;border-radius:5px;transition:width .8s ease}
+
+  .gauge-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;flex:1}
+  .gauge-num{font-family:'Space Grotesk',sans-serif;font-size:72px;font-weight:700}
+  .gauge-lbl{font-size:13px;color:#8b92a0;letter-spacing:.5px}
+
+  .empty{font-size:14px;color:#6b7280;padding:24px;text-align:center}
+
+  /* ===== TICKER ===== */
+  #ticker-wrap{height:44px;flex-shrink:0;background:#0d0f14;border-top:1px solid #1c2028;display:flex;align-items:center;overflow:hidden;margin-top:16px;padding-left:20px}
+  #ticker-track{display:flex;align-items:center;white-space:nowrap;animation:ticker-scroll 45s linear infinite}
+  #ticker-track span.item{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;margin-right:28px;color:#8b92a0}
+  #ticker-track span.sep{color:#2a2f3a;margin-right:28px}
+  @keyframes ticker-scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+  /* ===== ESTADOS ===== */
+  #boot{position:fixed;inset:0;background:#0a0b0e;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;z-index:999}
+  #boot .disp{font-size:18px;color:#6b7280;letter-spacing:1px}
+  .spin{width:36px;height:36px;border:3px solid #1f232b;border-top-color:#3b82f6;border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* ===== PAINEL DE CHAMADA (Ctrl+Shift+A) ===== */
+  #chamada-overlay{display:none;position:fixed;inset:0;background:rgba(5,6,9,.85);z-index:1000;align-items:center;justify-content:center}
+  #chamada-overlay.show{display:flex}
+  #chamada-box{background:#12141a;border:1px solid #232833;border-radius:14px;padding:32px;width:720px;max-width:92vw;max-height:80vh;display:flex;flex-direction:column;gap:18px}
+  #chamada-box h2{font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:700;letter-spacing:.5px}
+  #chamada-box p{font-size:13px;color:#8b92a0}
+  #chamada-lista{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;overflow-y:auto;padding:2px}
+  .chamada-btn{background:#161920;border:1px solid #232833;border-radius:8px;padding:14px 10px;font-size:13px;font-weight:600;color:#e6e8ec;cursor:pointer;text-align:center}
+  .chamada-btn:hover{background:#1c2028;border-color:#3b82f6}
+  .chamada-btn:active{background:#3b82f6;color:#0a0b0e}
+  #chamada-fechar{align-self:flex-end;background:transparent;border:1px solid #232833;border-radius:7px;padding:8px 18px;color:#8b92a0;font-size:12px;cursor:pointer}
+  #chamada-fechar:hover{border-color:#3b82f6;color:#e6e8ec}
+</style>
+</head>
+<body>
+
+<div id="boot">
+  <div class="spin"></div>
+  <div class="disp">CARREGANDO CENTRAL DE OPERAÇÕES…</div>
+</div>
+
+<div id="app" style="display:none">
+  <header>
+    <div class="brand">
+      <div class="bar"></div>
+      <h1>CENTRAL DE OPERAÇÕES</h1>
+      <div class="tag">VX CASE</div>
+    </div>
+    <div class="hdr-right">
+      <div class="atraso-badge" id="atrasoBadge"><span class="adot"></span><span class="anum" id="atrasoNum">0</span><span class="albl">EM ATRASO AGORA</span></div>
+      <div class="status-row" id="statusRow"></div>
+      <div class="divider"></div>
+      <div class="live-badge"><span class="live-dot"></span>AO VIVO</div>
+      <div class="clock-box">
+        <div class="clock" id="clock">--:--:--</div>
+        <div class="datestr" id="datestr"></div>
+      </div>
+    </div>
+  </header>
+
+  <div id="alarme-faixa">
+    <span class="adot"></span>
+    <span class="atitulo">🔔 VENCE EM BREVE</span>
+    <span class="atxt" id="alarmeTxt"></span>
+  </div>
+
+  <div id="stage">
+    <div class="tela ativa" id="tela1"></div>
+    <div class="tela" id="tela2"></div>
+    <div class="tela" id="tela3"></div>
+    <div class="tela" id="tela4"></div>
+  </div>
+
+  <div id="ticker-wrap">
+    <div id="ticker-track"></div>
+  </div>
+</div>
+
+<div id="chamada-overlay">
+  <div id="chamada-box">
+    <h2>📢 Chamada por voz</h2>
+    <p>Clique no nome do analista para chamar. Fecha com Esc ou no botão abaixo.</p>
+    <div id="chamada-lista"></div>
+    <button id="chamada-fechar" onclick="fecharChamada()">Fechar (Esc)</button>
+  </div>
+</div>
+
+<script>
+const SB_URL='https://llfiwklxinautxoujpre.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxsZml3a2x4aW5hdXR4b3VqcHJlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg5MDUzNTAsImV4cCI6MjEwNDQ4MTM1MH0.3dLtdv0Hvf93jXQHy2mjOTr4BJoCMHF_MzwUVEI5o38';
+const H={apikey:SB_KEY, Authorization:'Bearer '+SB_KEY, 'Content-Type':'application/json'};
+const sb=window.supabase.createClient(SB_URL,SB_KEY);
+
+const ROTACAO_MS=18000;   // cada tela fica 18s
+const REFRESH_MS=60000;   // rede de segurança — busca tudo de novo a cada 60s mesmo sem evento
+const ALARME_JANELA_MIN=120; // dispara alarme quando faltar <= 2h (120min) pro vencimento
+
+let DADOS={ demandas:[], radar:[], protocolos:[], metaMensal:0, custoMes:0, custoPorDestino:[], analistas:[], statusSistemas:{envios:true,protocolos:true,demandas:true,custos:true} };
+let alarmesDisparados=new Set(); // ids de demanda já alarmados — não repete o bipe pra mesma demanda
+
+/* ===== RELÓGIO ===== */
+function tickRelogio(){
+  const d=new Date();
+  document.getElementById('clock').textContent=d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  document.getElementById('datestr').textContent=d.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+}
+setInterval(tickRelogio,1000); tickRelogio();
+
+/* ===== BUSCA DE DADOS ===== */
+async function carregarDemandas(){
+  try{
+    const {data,error}=await sb.from('fds_demands').select('*').order('data').order('hora').limit(60);
+    if(error) throw error;
+    DADOS.demandas=data||[];
+    DADOS.statusSistemas.demandas=true;
+  }catch(e){ console.warn('carregarDemandas',e); DADOS.statusSistemas.demandas=false; }
+}
+async function carregarRadarEnvios(){
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/rpc/env_radar_atraso_entrega',{method:'POST',headers:H,body:'{}'});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    DADOS.radar=await r.json()||[];
+    DADOS.statusSistemas.envios=true;
+  }catch(e){ console.warn('carregarRadarEnvios',e); DADOS.statusSistemas.envios=false; }
+}
+async function carregarProtocolos(){
+  try{
+    const {data,error}=await sb.from('protocolo_envios').select('setor,status_envio,data_entrega,deleted_at').is('deleted_at',null).neq('status_envio','ENTREGUE').limit(1000);
+    if(error) throw error;
+    const porSetor={};
+    (data||[]).forEach(r=>{
+      const s=r.setor||'—';
+      porSetor[s]=porSetor[s]||{qtd:0,maisAntiga:null};
+      porSetor[s].qtd++;
+      if(r.data_entrega && (!porSetor[s].maisAntiga || r.data_entrega<porSetor[s].maisAntiga)) porSetor[s].maisAntiga=r.data_entrega;
+    });
+    DADOS.protocolos=Object.keys(porSetor).map(s=>({setor:s,...porSetor[s]})).sort((a,b)=>b.qtd-a.qtd);
+    DADOS.statusSistemas.protocolos=true;
+  }catch(e){ console.warn('carregarProtocolos',e); DADOS.statusSistemas.protocolos=false; }
+}
+async function carregarCustos(){
+  try{
+    const hoje=new Date();
+    const inicioMes=hoje.getFullYear()+'-'+String(hoje.getMonth()+1).padStart(2,'0')+'-01';
+    const {data,error}=await sb.from('env_envios').select('custo,data,dest,cancelado').gte('data',inicioMes);
+    if(error) throw error;
+    const rows=(data||[]).filter(r=>!r.cancelado);   // trata null/false como "não cancelado", igual ao resto do sistema
+    DADOS.custoMes=rows.reduce((s,r)=>s+(+r.custo||0),0);
+    const porDest={};
+    rows.forEach(r=>{ const c=+r.custo||0; if(c>0) porDest[r.dest]=(porDest[r.dest]||0)+c; });
+    DADOS.custoPorDestino=Object.keys(porDest).map(d=>({destino:d,custo:porDest[d]}));
+    const {data:cfg,error:e2}=await sb.from('env_config').select('valor').eq('chave','meta_mensal').limit(1);
+    if(e2) throw e2;
+    DADOS.metaMensal=cfg&&cfg.length?(+cfg[0].valor||0):0;
+    DADOS.statusSistemas.custos=true;
+  }catch(e){ console.warn('carregarCustos',e); DADOS.statusSistemas.custos=false; }
+}
+async function carregarAnalistas(){
+  try{
+    const {data,error}=await sb.from('env_destinos').select('analista');
+    if(error) throw error;
+    DADOS.analistas=[...new Set((data||[]).map(r=>r.analista).filter(Boolean))].sort();
+  }catch(e){ console.warn('carregarAnalistas',e); }
+}
+async function carregarTudo(){
+  await Promise.all([carregarDemandas(),carregarRadarEnvios(),carregarProtocolos(),carregarCustos()]);
+  renderStatus(); renderAtrasoBadge();
+  renderTela1(); renderTela2(); renderTela3(); renderTela4(); renderTicker();
+  verificarAlarmes();
+}
+
+/* ===== HELPERS ===== */
+function fmtR$(v){ return 'R$ '+(+v||0).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0}); }
+function tempoRestante(dataStr,horaStr){
+  if(!dataStr) return {txt:'—',classe:'t-normal',diffMin:99999};
+  const alvo=new Date(dataStr+'T'+(horaStr||'23:59:59'));
+  const diffMs=alvo-new Date();
+  const diffMin=Math.round(diffMs/60000);
+  if(diffMin<0){
+    const h=Math.floor(Math.abs(diffMin)/60), m=Math.abs(diffMin)%60;
+    return {txt:'ATRASADA '+(h>0?h+'h':'')+m+'m', classe:'t-atrasada', atrasada:true, diffMin};
+  }
+  if(diffMin<60) return {txt:'VENCE EM '+diffMin+'m', classe:diffMin<=30?'t-atrasada':'t-hoje', diffMin};
+  const dias=Math.floor(diffMin/1440);
+  const horasRest=Math.floor((diffMin%1440)/60);
+  if(dias===0) return {txt:horasRest+'h '+(diffMin%60)+'m', classe:'t-hoje', diffMin};
+  return {txt:dias+'d '+horasRest+'h', classe:'t-normal', diffMin};
+}
+
+/* ===== BADGE DE ATRASO NO CABEÇALHO — sempre visível, não importa a tela ===== */
+function renderAtrasoBadge(){
+  const atrasadasDem=DADOS.demandas.filter(d=>tempoRestante(d.data,d.hora).atrasada).length;
+  const atrasadosEnv=DADOS.radar.filter(r=>r.categoria==='ATRASADO').length;
+  const total=atrasadasDem+atrasadosEnv;
+  const badge=document.getElementById('atrasoBadge');
+  document.getElementById('atrasoNum').textContent=total;
+  badge.classList.toggle('show',total>0);
+}
+
+/* ===== ALARME — demanda a <=2h do prazo ===== */
+function verificarAlarmes(){
+  const agora=DADOS.demandas.map(d=>({...d,tr:tempoRestante(d.data,d.hora)}))
+    .filter(d=>!d.tr.atrasada && d.tr.diffMin<=ALARME_JANELA_MIN);
+
+  // dispara o bipe só pra quem ENTROU agora na janela (evita repetir a cada atualização)
+  agora.forEach(d=>{
+    if(!alarmesDisparados.has(d.id)){
+      alarmesDisparados.add(d.id);
+      tocarBipe();
+    }
+  });
+
+  const faixa=document.getElementById('alarme-faixa');
+  if(agora.length){
+    const txt=agora.sort((a,b)=>a.tr.diffMin-b.tr.diffMin)
+      .map(d=>`"${d.titulo}" (${d.responsavel||'sem responsável'}) — ${d.tr.txt.toLowerCase()}`).join('  ·  ');
+    document.getElementById('alarmeTxt').textContent=txt;
+    faixa.classList.add('show');
+  } else {
+    faixa.classList.remove('show');
+  }
+}
+function tocarBipe(){
+  try{
+    const ctx=new (window.AudioContext||window.webkitAudioContext)();
+    [0,0.25,0.5].forEach(t=>{
+      const osc=ctx.createOscillator(), gain=ctx.createGain();
+      osc.type='square'; osc.frequency.value=880;
+      gain.gain.setValueAtTime(0.15, ctx.currentTime+t);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+t+0.18);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(ctx.currentTime+t); osc.stop(ctx.currentTime+t+0.2);
+    });
+  }catch(e){ console.warn('tocarBipe (bloqueado até 1ª interação do navegador?)',e); }
+}
+
+/* ===== TELA 1 — DEMANDAS (tela própria) ===== */
+function renderTela1(){
+  const el=document.getElementById('tela1');
+  const dem=DADOS.demandas.map(d=>({...d, tr:tempoRestante(d.data,d.hora)}));
+  const atrasadas=dem.filter(d=>d.tr.atrasada);
+  const hojeStr=new Date().toISOString().slice(0,10);
+  const venceHoje=dem.filter(d=>!d.tr.atrasada && d.data===hojeStr);
+
+  const ordenadas=[...dem].sort((a,b)=>a.tr.diffMin-b.tr.diffMin).slice(0,12);
+
+  el.innerHTML=`
+    <div class="tela-header"><div class="tela-titulo">📋 DEMANDAS</div><div class="tela-sub">${dem.length} ativa(s)</div></div>
+    <div class="kpi-row n3">
+      <div class="kpi crit"><div class="lbl">ATRASADAS</div><div class="val">${atrasadas.length}</div></div>
+      <div class="kpi warn"><div class="lbl">VENCEM HOJE</div><div class="val">${venceHoje.length}</div></div>
+      <div class="kpi"><div class="lbl">TOTAL ATIVAS</div><div class="val">${dem.length}</div></div>
+    </div>
+    <div class="painel">
+      <h2>MAIS URGENTES <span class="sub-count">ordenado por tempo restante</span></h2>
+      <div class="lista">
+        ${ordenadas.length?ordenadas.map(d=>`
+          <div class="demanda-row ${d.tr.atrasada?'atrasada':(d.data===hojeStr?'hoje':'')}">
+            <div class="cod mono">${(d.id||'').toString().slice(0,6)}</div>
+            <div class="tit">${d.titulo||'—'}</div>
+            <div class="setor">${d.criado_por||'—'}</div>
+            <div class="resp">${d.responsavel||'—'}</div>
+            <div class="tempo ${d.tr.classe}">${d.tr.txt}</div>
+          </div>`).join(''):'<div class="empty">Nenhuma demanda ativa agora. ✅</div>'}
+      </div>
+    </div>`;
+}
+
+/* ===== TELA 2 — ENVIOS / Torre de Controle (tela própria) ===== */
+function renderTela2(){
+  const el=document.getElementById('tela2');
+  const atrasados=DADOS.radar.filter(r=>r.categoria==='ATRASADO').sort((a,b)=>b.dias_atraso-a.dias_atraso);
+  const amanha=DADOS.radar.filter(r=>r.categoria==='AMANHA');
+
+  el.innerHTML=`
+    <div class="tela-header"><div class="tela-titulo">🚚 TORRE DE CONTROLE DE ENVIOS</div><div class="tela-sub">${atrasados.length} atrasado(s) · ${amanha.length} atrasam amanhã</div></div>
+    <div class="kpi-row n3">
+      <div class="kpi crit"><div class="lbl">JÁ ATRASADOS</div><div class="val">${atrasados.length}</div></div>
+      <div class="kpi risk"><div class="lbl">ATRASAM AMANHÃ</div><div class="val">${amanha.length}</div></div>
+      <div class="kpi"><div class="lbl">SEM RISCO</div><div class="val">✓</div></div>
+    </div>
+    <div class="painel">
+      <h2>ENVIOS EM RISCO</h2>
+      <div class="lista">
+        ${atrasados.length||amanha.length ? [...atrasados,...amanha].slice(0,14).map(r=>`
+          <div class="envio-card ${r.categoria==='ATRASADO'?'critico':'risco'}">
+            <div class="envio-topo">
+              <div class="envio-nome">${r.destino}</div>
+              <div style="display:flex;align-items:center;gap:14px">
+                ${r.categoria==='ATRASADO'?`<div class="envio-dias">${r.dias_atraso}d</div>`:''}
+                <div class="envio-sel ${r.categoria==='ATRASADO'?'sel-critico':'sel-risco'}">${r.categoria==='ATRASADO'?'CRÍTICO':'RISCO'}</div>
+              </div>
+            </div>
+            <div class="envio-info">${r.transp||'—'} · ${r.categoria==='ATRASADO'?(r.dias_atraso+' dia(s) de atraso na entrega'):'previsão de atraso amanhã'}</div>
+          </div>`).join('') : '<div class="empty">Nenhum envio em risco agora. ✅</div>'}
+      </div>
+    </div>`;
+}
+
+/* ===== TELA 3 — PROTOCOLOS (tela própria) ===== */
+function renderTela3(){
+  const el=document.getElementById('tela3');
+  const maxQtd=DADOS.protocolos.length?Math.max(...DADOS.protocolos.map(p=>p.qtd)):1;
+  const total=DADOS.protocolos.reduce((s,p)=>s+p.qtd,0);
+  const hoje=new Date();
+
+  el.innerHTML=`
+    <div class="tela-header"><div class="tela-titulo">📦 PROTOCOLOS AGUARDANDO ENTREGA</div><div class="tela-sub">${total} pendente(s) no total</div></div>
+    <div class="kpi-row n3">
+      <div class="kpi"><div class="lbl">TOTAL PENDENTE</div><div class="val">${total}</div></div>
+      <div class="kpi"><div class="lbl">SETORES ENVOLVIDOS</div><div class="val">${DADOS.protocolos.length}</div></div>
+      <div class="kpi warn"><div class="lbl">MAIOR FILA</div><div class="val" style="font-size:32px">${DADOS.protocolos[0]?DADOS.protocolos[0].setor:'—'}</div></div>
+    </div>
+    <div class="painel">
+      <h2>RANKING POR SETOR</h2>
+      <div class="lista">
+        ${DADOS.protocolos.length?DADOS.protocolos.map(p=>{
+          let diasEsperando='';
+          if(p.maisAntiga){ const d=Math.floor((hoje-new Date(p.maisAntiga+'T00:00'))/86400000); diasEsperando=`mais antigo aguardando há ${d} dia(s)`; }
+          return `
+            <div class="setor-row">
+              <div class="setor-topo"><span class="setor-nome">${p.setor}</span><span class="setor-qtd mono">${p.qtd}</span></div>
+              <div class="setor-trilha"><div class="setor-fill" style="width:${(p.qtd/maxQtd*100).toFixed(0)}%"></div></div>
+              ${diasEsperando?`<div class="setor-detail">${diasEsperando}</div>`:''}
+            </div>`;
+        }).join(''):'<div class="empty">Nenhum protocolo pendente. ✅</div>'}
+      </div>
+    </div>`;
+}
+
+/* ===== TELA 4 — CUSTOS / FINANCEIRO + Top Destinos (tela própria) ===== */
+function renderTela4(){
+  const el=document.getElementById('tela4');
+  const pctMeta=DADOS.metaMensal>0?(DADOS.custoMes/DADOS.metaMensal*100):0;
+  const saldo=DADOS.metaMensal-DADOS.custoMes;
+  const topDest=[...DADOS.custoPorDestino].sort((a,b)=>b.custo-a.custo).slice(0,5);
+  const maxCusto=topDest.length?topDest[0].custo:1;
+
+  el.innerHTML=`
+    <div class="tela-header"><div class="tela-titulo">💰 CUSTOS & META</div><div class="tela-sub">mês corrente</div></div>
+    <div style="flex:1;min-height:0;display:grid;grid-template-columns:1fr 1.2fr;gap:16px">
+      <div class="painel">
+        <h2>META DO MÊS</h2>
+        ${DADOS.statusSistemas.custos ? `
+        <div class="gauge-wrap">
+          <div class="gauge-num" style="color:${pctMeta>=100?'#ef4444':pctMeta>=80?'#eab308':'#3b82f6'}">${pctMeta.toFixed(1)}%</div>
+          <div class="gauge-lbl">DA META UTILIZADA</div>
+          <div class="barra-trilha" style="width:85%;margin-top:14px"><div class="barra-fill" style="width:${Math.min(100,pctMeta)}%;background:${pctMeta>=100?'#ef4444':pctMeta>=80?'#eab308':'#3b82f6'}"></div></div>
+          <div style="display:flex;gap:36px;margin-top:26px">
+            <div style="text-align:center"><div class="disp" style="font-size:22px;font-weight:700">${fmtR$(DADOS.custoMes)}</div><div style="font-size:11px;color:#8b92a0;margin-top:2px">CUSTO ATUAL</div></div>
+            <div style="text-align:center"><div class="disp" style="font-size:22px;font-weight:700">${DADOS.metaMensal>0?fmtR$(DADOS.metaMensal):'—'}</div><div style="font-size:11px;color:#8b92a0;margin-top:2px">META</div></div>
+          </div>
+          <div style="text-align:center;margin-top:16px">
+            <div class="disp" style="font-size:18px;font-weight:700;color:${saldo<0?'#ef4444':'#22c55e'}">${DADOS.metaMensal>0?fmtR$(Math.abs(saldo)):'—'}</div>
+            <div style="font-size:11px;color:#8b92a0;margin-top:2px">${saldo<0?'ACIMA DA META':'SALDO DA META'}</div>
+          </div>
+          ${DADOS.metaMensal<=0?'<div class="empty" style="margin-top:14px">Meta não configurada em env_config (chave "meta_mensal").</div>':''}
+        </div>` : '<div class="empty" style="flex:1;display:flex;align-items:center;justify-content:center">⚠ Não consegui carregar os custos agora.</div>'}
+      </div>
+      <div class="painel">
+        <h2>TOP DESTINOS POR CUSTO</h2>
+        <div class="lista">
+          ${topDest.length?topDest.map((d,i)=>`
+            <div class="barra-item">
+              <div class="barra-topo"><span class="barra-nome">${i+1}º ${d.destino}</span><span class="barra-val mono">${fmtR$(d.custo)}</span></div>
+              <div class="barra-trilha"><div class="barra-fill" style="width:${(d.custo/maxCusto*100).toFixed(0)}%"></div></div>
+            </div>`).join(''):'<div class="empty">Sem dados de custo ainda este mês.</div>'}
+        </div>
+      </div>
+    </div>`;
+}
+
+/* ===== STATUS DOS SISTEMAS ===== */
+function renderStatus(){
+  const s=DADOS.statusSistemas;
+  document.getElementById('statusRow').innerHTML=[
+    ['Demandas','demandas'],['Envios','envios'],['Protocolos','protocolos'],['Custos','custos']
+  ].map(([label,key])=>`<div class="status-item"><span class="dot ${s[key]?'on':'off'}"></span>${label}${s[key]?'':' OFFLINE'}</div>`).join('');
+}
+
+/* ===== TICKER ===== */
+function renderTicker(){
+  const hojeStr=new Date().toISOString().slice(0,10);
+  const atrasadasDem=DADOS.demandas.filter(d=>tempoRestante(d.data,d.hora).atrasada).length;
+  const venceHojeDem=DADOS.demandas.filter(d=>d.data===hojeStr && !tempoRestante(d.data,d.hora).atrasada).length;
+  const atrasadosEnv=DADOS.radar.filter(r=>r.categoria==='ATRASADO').length;
+  const totalProtocolos=DADOS.protocolos.reduce((s,p)=>s+p.qtd,0);
+  const setorTop=[...DADOS.protocolos].sort((a,b)=>b.qtd-a.qtd)[0];
+  const pctMeta=DADOS.metaMensal>0?(DADOS.custoMes/DADOS.metaMensal*100):0;
+
+  const itens=[];
+  if(atrasadasDem) itens.push(`<span class="item"><span style="color:#ef4444;font-weight:700">●</span> ${atrasadasDem} DEMANDA(S) ATRASADA(S)</span>`);
+  if(venceHojeDem) itens.push(`<span class="item"><span style="color:#eab308;font-weight:700">●</span> ${venceHojeDem} DEMANDA(S) VENCEM HOJE</span>`);
+  if(atrasadosEnv) itens.push(`<span class="item"><span style="color:#f97316;font-weight:700">●</span> ${atrasadosEnv} ENVIO(S) COM ATRASO</span>`);
+  if(setorTop) itens.push(`<span class="item">${setorTop.setor} POSSUI ${setorTop.qtd} PROTOCOLOS PENDENTES</span>`);
+  itens.push(`<span class="item">CUSTO DO MÊS: ${fmtR$(DADOS.custoMes)} · META UTILIZADA ${pctMeta.toFixed(1)}%</span>`);
+  itens.push(`<span class="item">TOTAL DE PROTOCOLOS PENDENTES: ${totalProtocolos}</span>`);
+
+  if(!itens.length) itens.push('<span class="item">OPERAÇÃO NORMAL — NENHUM ALERTA NO MOMENTO ✅</span>');
+
+  const sep='<span class="sep">◆</span>';
+  const linha=itens.join(sep);
+  document.getElementById('ticker-track').innerHTML=linha+sep+linha; // duplica pra loop contínuo sem salto
+}
+
+/* ===== ROTAÇÃO DE TELAS ===== */
+let telaAtual=0;
+function rotacionar(){
+  const telas=['tela1','tela2','tela3','tela4'];
+  document.getElementById(telas[telaAtual]).classList.remove('ativa');
+  telaAtual=(telaAtual+1)%telas.length;
+  document.getElementById(telas[telaAtual]).classList.add('ativa');
+}
+setInterval(rotacionar,ROTACAO_MS);
+
+/* ===== ALARME — checa a cada 30s, mesmo sem evento novo (demanda pode entrar na janela de 2h sem nada mudar no banco) ===== */
+setInterval(()=>{ renderAtrasoBadge(); verificarAlarmes(); renderTicker(); }, 30000);
+
+/* ===== PAINEL DE CHAMADA POR VOZ (Ctrl+Shift+A) ===== */
+async function abrirChamada(){
+  const lista=document.getElementById('chamada-lista');
+  document.getElementById('chamada-overlay').classList.add('show');
+  if(!DADOS.analistas.length){
+    lista.innerHTML='<div class="empty" style="grid-column:1/-1">Carregando analistas…</div>';
+    await carregarAnalistas();   // pode não ter terminado no boot (ex: atalho apertado rápido demais); busca de novo agora
+  }
+  if(!DADOS.analistas.length){
+    lista.innerHTML='<div class="empty" style="grid-column:1/-1">Nenhum analista cadastrado.</div>';
+  } else {
+    lista.innerHTML=DADOS.analistas.map(nome=>`<button class="chamada-btn" onclick="chamarAnalista('${nome.replace(/'/g,"\\'")}')">${nome}</button>`).join('');
+  }
+}
+function fecharChamada(){ document.getElementById('chamada-overlay').classList.remove('show'); }
+let canalChamada=null;   // canal de transmissão — todo aparelho com a tela aberta escuta aqui
+function falarChamada(nome){
+  const texto=`${nome}, favor comparecer à sala do Coordenador Rodrigo.`;
+  try{
+    const ut=new SpeechSynthesisUtterance(texto);
+    ut.lang='pt-BR'; ut.rate=0.92; ut.pitch=0.85;
+    const vozes=window.speechSynthesis.getVoices();
+    const vozPt=vozes.find(v=>v.lang&&v.lang.toLowerCase().startsWith('pt'));
+    if(vozPt) ut.voice=vozPt;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(ut);
+  }catch(e){ console.warn('falarChamada (fala não suportada)',e); }
+}
+function chamarAnalista(nome){
+  // não fala só aqui — transmite pra qualquer tela aberta (a TV da outra sala inclusive)
+  if(canalChamada) canalChamada.send({type:'broadcast', event:'chamar', payload:{nome}});
+  else falarChamada(nome);   // se por algum motivo o canal não conectou, ao menos fala localmente
+}
+document.addEventListener('keydown',e=>{
+  if(e.ctrlKey && e.shiftKey && (e.key==='A'||e.key==='a')){ e.preventDefault(); abrirChamada(); }
+  else if(e.key==='Escape'){ fecharChamada(); }
+});
+// alguns navegadores só populam a lista de vozes de forma assíncrona
+if('speechSynthesis' in window){ window.speechSynthesis.onvoiceschanged=()=>{}; }
+
+/* ===== REALTIME — atualiza sozinho quando algo muda no banco, sem esperar o ciclo ===== */
+function iniciarRealtime(){
+  canalChamada=sb.channel('chamada-analista-broadcast');
+  canalChamada.on('broadcast',{event:'chamar'},msg=>{ falarChamada(msg.payload.nome); }).subscribe();
+  sb.channel('tv-envios').on('postgres_changes',{event:'*',schema:'public',table:'env_envios'},()=>{
+    carregarRadarEnvios().then(()=>{renderTela2();renderTicker();renderStatus();renderAtrasoBadge();});
+    carregarCustos().then(()=>{renderTela4();renderTicker();});
+  }).subscribe();
+  sb.channel('tv-protocolos').on('postgres_changes',{event:'*',schema:'public',table:'protocolo_envios'},()=>{
+    carregarProtocolos().then(()=>{renderTela3();renderTicker();renderStatus();});
+  }).subscribe();
+  sb.channel('tv-demandas').on('postgres_changes',{event:'*',schema:'public',table:'fds_demands'},()=>{
+    carregarDemandas().then(()=>{renderTela1();renderTicker();renderStatus();renderAtrasoBadge();verificarAlarmes();});
+  }).subscribe();
+  sb.channel('tv-history').on('postgres_changes',{event:'*',schema:'public',table:'fds_history'},()=>{
+    carregarDemandas().then(()=>{renderTela1();renderTicker();renderStatus();renderAtrasoBadge();verificarAlarmes();});
+  }).subscribe();
+}
+
+/* ===== BOOT ===== */
+async function iniciar(){
+  await Promise.all([carregarTudo(), carregarAnalistas()]);
+  document.getElementById('boot').style.display='none';
+  document.getElementById('app').style.display='flex';
+  iniciarRealtime();
+  setInterval(carregarTudo,REFRESH_MS);   // rede de segurança, mesmo com realtime ligado
+}
+iniciar();
+</script>
+</body>
+</html>
