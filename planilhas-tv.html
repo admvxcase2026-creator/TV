@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Planilhas da TV · Estoque e Vendas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0a0b0e;--panel:#12141a;--panel2:#161920;--line:#232833;--txt:#e6e8ec;--muted:#8b92a0;--dim:#6b7280;
+    --blue:#3b82f6;--green:#22c55e;--amber:#eab308;--orange:#f97316;--red:#ef4444;--teal:#2dd4bf}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;padding:24px 18px 80px}
+  .wrap{max-width:1180px;margin:0 auto}
+  h1{font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:700}
+  .sub{color:var(--muted);font-size:13px;margin-top:4px;line-height:1.5}
+  .tabs{display:flex;gap:8px;margin:22px 0 16px}
+  .tab{padding:10px 18px;border-radius:9px;border:1px solid var(--line);background:var(--panel);color:var(--muted);cursor:pointer;font-weight:600;font-size:14px}
+  .tab.on{background:#172033;border-color:var(--blue);color:var(--txt)}
+  .tab small{display:block;font-weight:400;font-size:11px;color:var(--dim);margin-top:2px}
+  .pane{display:none}.pane.on{display:block}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:14px}
+  .card h2{font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:700;margin-bottom:12px;letter-spacing:.3px}
+  .drop{border:2px dashed #2d3442;border-radius:12px;padding:26px;text-align:center;color:var(--muted);cursor:pointer;transition:.15s}
+  .drop:hover,.drop.over{border-color:var(--blue);color:var(--txt);background:#101725}
+  .drop b{color:var(--txt)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+  label.f{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--muted);font-weight:600}
+  label.f .req{color:var(--orange)}
+  select,input[type=number],input[type=text]{background:#0d0f14;border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:9px 10px;font-size:13.5px;font-family:inherit;width:100%}
+  select:focus,input:focus{outline:none;border-color:var(--blue)}
+  .btn{padding:10px 16px;border-radius:9px;border:1px solid var(--line);background:var(--panel2);color:var(--txt);font-weight:600;font-size:13.5px;cursor:pointer}
+  .btn:hover:not(:disabled){background:#1d2230}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  .btn.pri{background:var(--blue);border-color:var(--blue);color:#fff}
+  .btn.ok{background:var(--green);border-color:var(--green);color:#04210f}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .chips{display:flex;flex-wrap:wrap;gap:7px;max-height:210px;overflow:auto;padding:2px}
+  .chip{padding:6px 11px;border-radius:99px;border:1px solid var(--line);background:var(--panel2);color:var(--muted);font-size:12.5px;cursor:pointer;user-select:none}
+  .chip.on{background:#14301f;border-color:var(--green);color:#bbf7d0}
+  .chip i{font-style:normal;color:var(--dim);margin-left:5px;font-size:11px}
+  .note{font-size:12px;color:var(--dim);line-height:1.55;margin-top:8px}
+  .stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+  .stat{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:9px 13px;font-size:12px;color:var(--muted)}
+  .stat b{display:block;font-family:'Space Grotesk',sans-serif;font-size:20px;color:var(--txt)}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.4px;text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel)}
+  td{padding:7px 8px;border-bottom:1px solid #1a1e27;white-space:nowrap;max-width:340px;overflow:hidden;text-overflow:ellipsis}
+  td.n,th.n{text-align:right;font-family:'IBM Plex Mono',monospace}
+  .tbl{max-height:380px;overflow:auto;border:1px solid var(--line);border-radius:9px}
+  .sev{font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:99px;letter-spacing:.4px}
+  .sev.crit{background:#3a1d20;color:#fca5a5}.sev.risco{background:#3a2a1a;color:#fdba74}.sev.ok{background:#1a2a3a;color:#93c5fd}
+  .sev.venc{background:#3a1d20;color:#fca5a5}.sev.ssa{background:#12302c;color:#5eead4}.sev.fora{background:#2a2540;color:#c4b5fd}
+  #pill{position:fixed;top:14px;right:14px;z-index:50;padding:7px 14px;border-radius:99px;font-size:12.5px;font-weight:600;background:var(--panel);border:1px solid var(--line);color:var(--muted);opacity:0;transition:.2s}
+  #pill.show{opacity:1}#pill.ok{color:var(--green);border-color:#14532d}#pill.err{color:var(--red);border-color:#5a1f22}
+  .last{font-size:12px;color:var(--muted);margin-top:8px}
+  .last b{color:var(--txt)}
+</style>
+</head>
+<body>
+<div id="pill"></div>
+<div class="wrap">
+  <h1>Planilhas da TV</h1>
+  <p class="sub">Anexe o Excel do dia, confira as colunas e publique. A TV mostra o estoque crítico e as vendas a vencer.</p>
+
+  <div class="tabs">
+    <div class="tab on" data-t="estoque" onclick="trocarAba('estoque')">Produtos (estoque)<small id="tabEstoqueInfo">sem publicação</small></div>
+    <div class="tab" data-t="vendas" onclick="trocarAba('vendas')">Relatório de vendas<small id="tabVendasInfo">sem publicação</small></div>
+  </div>
+
+  <div class="pane on" id="pane-estoque"></div>
+  <div class="pane" id="pane-vendas"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>
+/*LOGICA_INICIO*/
+const norm=s=>String(s==null?'':s).normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' ').trim().toUpperCase();
+function pad(n){return String(n).padStart(2,'0');}
+function parseNum(v){
+  if(v==null||v==='') return null;
+  if(typeof v==='number') return isFinite(v)?v:null;
+  let s=String(v).trim().replace(/\s/g,'').replace(/[^\d.,\-]/g,'');
+  if(!s) return null;
+  if(s.includes(',')&&s.includes('.')) s=s.replace(/\./g,'').replace(',','.');
+  else if(s.includes(',')) s=s.replace(',','.');
+  else if(/^-?\d{1,3}(\.\d{3})+$/.test(s)) s=s.replace(/\./g,'');
+  const n=parseFloat(s); return isFinite(n)?n:null;
+}
+function serialToIso(n){const d=new Date(Date.UTC(1899,11,30)+Math.floor(n)*86400000);return d.getUTCFullYear()+'-'+pad(d.getUTCMonth()+1)+'-'+pad(d.getUTCDate());}
+function parseDataIso(v){
+  if(v==null||v==='') return null;
+  if(v instanceof Date&&!isNaN(v)) return v.getFullYear()+'-'+pad(v.getMonth()+1)+'-'+pad(v.getDate());
+  if(typeof v==='number') return (v>20000&&v<80000)?serialToIso(v):null;
+  const s=String(v).trim();
+  let m=s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);
+  if(m){let y=+m[3];if(y<100)y+=2000;return y+'-'+pad(+m[2])+'-'+pad(+m[1]);}
+  m=s.match(/^(\d{4})-(\d{2})-(\d{2})/); if(m) return m[1]+'-'+m[2]+'-'+m[3];
+  return null;
+}
+function isoDias(iso){const p=iso.split('-');return Math.round(Date.UTC(+p[0],+p[1]-1,+p[2])/86400000);}
+function hojeIso(d){d=d||new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+function addDiasIso(iso,n){const d=new Date((isoDias(iso)+n)*86400000);return d.getUTCFullYear()+'-'+pad(d.getUTCMonth()+1)+'-'+pad(d.getUTCDate());}
+function fmtIso(iso){const p=String(iso).split('-');return p.length===3?p[2]+'/'+p[1]:iso;}
+const ATENDIDA_OK=new Set(['TRUE','VERDADEIRO','SIM','S','X','1','OK','ATENDIDA','ATENDIDO','V','YES','Y']);
+function marcado(v){
+  if(v===true) return true;
+  if(v==null||v===false||v==='') return false;
+  if(typeof v==='number') return v!==0;
+  const raw=String(v).trim();
+  return ATENDIDA_OK.has(norm(raw))||['✓','✔','☑','✅'].includes(raw);
+}
+function lerPlanilha(buf){
+  const wb=XLSX.read(buf,{type:'array'});
+  return {wb,sheets:wb.SheetNames};
+}
+function linhasDaAba(wb,nome){
+  return XLSX.utils.sheet_to_json(wb.Sheets[nome],{header:1,raw:true,defval:null,blankrows:true});
+}
+function detectarCabecalho(rows){
+  for(let i=0;i<Math.min(rows.length,30);i++){
+    const n=(rows[i]||[]).filter(c=>c!=null&&String(c).trim()!=='').length;
+    if(n>=3) return i+1;
+  }
+  return 1;
+}
+function montarTabela(rows,hr){
+  const h=(rows[hr-1]||[]).map(x=>x==null?'':String(x).trim());
+  return {headers:h,data:rows.slice(hr).filter(r=>r&&r.some(c=>c!=null&&String(c).trim()!==''))};
+}
+const idx=(headers,name)=>name?headers.indexOf(name):-1;
+const txt=(r,i)=>i>=0&&r[i]!=null?String(r[i]).trim():'';
+
+function processEstoque(headers,data,cfg){
+  const c=cfg.cols,p=cfg.params;
+  const i={cod:idx(headers,c.cod),desc:idx(headers,c.desc),linha:idx(headers,c.linha),geral:idx(headers,c.geral),lojas:idx(headers,c.lojas),media:idx(headers,c.media)};
+  const div=p.mediaPor==='dia'?1:(p.mediaPor==='semana'?7:30);
+  const sel=new Set((cfg.linhasSel||[]).map(norm));
+  const alertas=[];const st={total:0,naLinha:0,acima:0,semGiro:0,semDados:0};
+  data.forEach(r=>{
+    st.total++;
+    const linha=txt(r,i.linha);
+    if(!cfg.todasLinhas&&!sel.has(norm(linha))) return;
+    st.naLinha++;
+    const geral=parseNum(r[i.geral]);
+    if(geral==null){st.semDados++;return;}
+    if(geral>p.limite){st.acima++;return;}
+    const lojas=Math.max(0,parseNum(r[i.lojas])||0);
+    const mediaDia=Math.max(0,(parseNum(r[i.media])||0)/div);
+    if(!(mediaDia>0)){st.semGiro++;return;}
+    const g=Math.max(0,geral);
+    const dias=Math.floor(g/mediaDia);
+    const falta=Math.max(0,Math.ceil(mediaDia*p.reposicao)-g);
+    const sev=dias<=7?'crit':(dias<p.reposicao?'risco':'ok');
+    alertas.push({cod:txt(r,i.cod),desc:txt(r,i.desc),linha,geral:Math.round(g),lojas:Math.round(lojas),mediaDia:+mediaDia.toFixed(2),dias,falta,cobre:lojas>=falta,sev});
+  });
+  alertas.sort((a,b)=>a.dias-b.dias);
+  return {alertas,stats:st,params:{limite:p.limite,reposicao:p.reposicao,mediaPor:p.mediaPor}};
+}
+function processVendas(headers,data,cfg,hoje){
+  const c=cfg.cols,p=cfg.params;hoje=hoje||hojeIso();
+  const i={ref:idx(headers,c.ref),data:idx(headers,c.data),ponto:idx(headers,c.ponto),atendida:idx(headers,c.atendida),desc:idx(headers,c.desc)};
+  const salv=norm(p.textoSalvador||'SALVADOR');
+  const alertas=[];const st={total:0,atendidas:0,abertas:0,semData:0,antigas:0,longe:0};
+  data.forEach((r,n)=>{
+    st.total++;
+    const dt=parseDataIso(r[i.data]);
+    if(!dt){st.semData++;return;}
+    if(marcado(r[i.atendida])){st.atendidas++;return;}
+    const ponto=txt(r,i.ponto);
+    const ssa=norm(ponto).includes(salv);
+    const prazo=ssa?p.prazoSsa:p.prazoFora,aviso=ssa?p.avisoSsa:p.avisoFora;
+    const venc=addDiasIso(dt,prazo);
+    const resta=isoDias(venc)-isoDias(hoje);
+    st.abertas++;
+    if(resta<-p.maxVencido){st.antigas++;return;}
+    if(resta>aviso+15){st.longe++;return;}
+    alertas.push({ref:txt(r,i.ref)||('linha '+(n+2)),desc:txt(r,i.desc),ponto,tipo:ssa?'SSA':'FORA',data:dt,venc,aviso,resta});
+  });
+  alertas.sort((a,b)=>a.resta-b.resta);
+  return {alertas,stats:st};
+}
+/*LOGICA_FIM*/
+
+/* ===== CONFIG ===== */
+const SB_URL='https://llfiwklxinautxoujpre.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxsZml3a2x4aW5hdXR4b3VqcHJlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg5MDUzNTAsImV4cCI6MjEwNDQ4MTM1MH0.3dLtdv0Hvf93jXQHy2mjOTr4BJoCMHF_MzwUVEI5o38';
+const sb=window.supabase.createClient(SB_URL,SB_KEY);
+
+const DEF={
+  estoque:{
+    titulo:'Produtos (estoque)',
+    campos:[
+      {id:'cod',label:'Código do produto',req:false,guess:/c[oó]d|sku|ref/i},
+      {id:'desc',label:'Descrição / produto',req:true,guess:/descri|produto|nome|item/i},
+      {id:'linha',label:'Linha / categoria',req:true,guess:/linha|categ|grupo|famil/i},
+      {id:'geral',label:'Estoque geral',req:true,guess:/(estoque|saldo).*(geral|cd|total)|geral/i},
+      {id:'lojas',label:'Estoque em lojas',req:true,guess:/loja|pdv/i},
+      {id:'media',label:'Média de vendas',req:true,guess:/m[eé]dia|giro|venda/i}
+    ],
+    params:{limite:100,reposicao:30,mediaPor:'mes'}
+  },
+  vendas:{
+    titulo:'Relatório de vendas',
+    campos:[
+      {id:'ref',label:'Nº / ID da venda',req:true,guess:/pedido|venda|n[ºo°]|n[uú]mero|id|c[oó]d/i},
+      {id:'data',label:'Data de lançamento',req:true,guess:/data|lan[cç]/i},
+      {id:'ponto',label:'Ponto / cidade (define Salvador ou fora)',req:true,guess:/ponto|cidade|loja|filial|pra[cç]a|destino/i},
+      {id:'atendida',label:'Atendida (checkbox)',req:true,guess:/atendid|check|baix|conclu/i},
+      {id:'desc',label:'Descrição / produto (opcional)',req:false,guess:/descri|produto|item|cliente/i}
+    ],
+    params:{prazoFora:30,prazoSsa:15,avisoFora:10,avisoSsa:5,textoSalvador:'SALVADOR',maxVencido:60}
+  }
+};
+const ST={};
+['estoque','vendas'].forEach(t=>{
+  ST[t]={wb:null,sheets:[],sheet:'',rows:[],hr:1,headers:[],data:[],fileName:'',res:null,
+    cfg:{cols:{},linhasSel:[],todasLinhas:false,params:{...DEF[t].params}}};
+});
+
+/* ===== UI util ===== */
+let pillT=null;
+function pill(t,tipo){const p=document.getElementById('pill');p.textContent=t;p.className='show '+(tipo||'');clearTimeout(pillT);if(tipo!=='pend')pillT=setTimeout(()=>p.className='',2600);}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function trocarAba(t){
+  document.querySelectorAll('.tab').forEach(e=>e.classList.toggle('on',e.dataset.t===t));
+  document.querySelectorAll('.pane').forEach(e=>e.classList.toggle('on',e.id==='pane-'+t));
+}
+function salvarLocal(t){try{localStorage.setItem('planilhas_tv_cfg_'+t,JSON.stringify(ST[t].cfg));}catch(e){}}
+function carregarLocal(t){
+  try{const j=JSON.parse(localStorage.getItem('planilhas_tv_cfg_'+t)||'null');if(j)mesclarCfg(t,j);}catch(e){}
+}
+function mesclarCfg(t,j){
+  const c=ST[t].cfg;
+  c.cols={...c.cols,...(j.cols||{})};
+  c.linhasSel=j.linhasSel||c.linhasSel;
+  c.todasLinhas=!!j.todasLinhas;
+  c.params={...c.params,...(j.params||{})};
+}
+
+/* ===== painéis ===== */
+function montarPane(t){
+  const d=DEF[t];
+  document.getElementById('pane-'+t).innerHTML=`
+    <div class="card">
+      <h2>1. Arquivo Excel</h2>
+      <div class="drop" id="drop-${t}" onclick="document.getElementById('file-${t}').click()">
+        <b>Clique ou arraste o arquivo aqui</b><br><span id="dropinfo-${t}" style="font-size:12px">.xlsx, .xlsm ou .xls</span>
+      </div>
+      <input type="file" id="file-${t}" accept=".xlsx,.xlsm,.xls,.csv" style="display:none" onchange="onFile('${t}',this.files[0])">
+      <div class="last" id="last-${t}"></div>
+    </div>
+    <div id="cfg-${t}"></div>
+    <div id="res-${t}"></div>`;
+  const dz=document.getElementById('drop-'+t);
+  ['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add('over');}));
+  ['dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove('over');}));
+  dz.addEventListener('drop',e=>{if(e.dataTransfer.files[0])onFile(t,e.dataTransfer.files[0]);});
+}
+async function onFile(t,file){
+  if(!file) return;
+  const s=ST[t];
+  try{
+    pill('Lendo arquivo...','pend');
+    const buf=await file.arrayBuffer();
+    const r=lerPlanilha(buf);
+    s.wb=r.wb;s.sheets=r.sheets;s.sheet=r.sheets[0];s.fileName=file.name;s.res=null;
+    document.getElementById('dropinfo-'+t).textContent=file.name;
+    carregarAba(t,true);
+    pill('Arquivo lido','ok');
+  }catch(e){console.error(e);pill('Não consegui ler esse arquivo','err');}
+}
+function carregarAba(t,auto){
+  const s=ST[t];
+  s.rows=linhasDaAba(s.wb,s.sheet);
+  if(auto) s.hr=detectarCabecalho(s.rows);
+  const tb=montarTabela(s.rows,s.hr);
+  s.headers=tb.headers;s.data=tb.data;
+  // restaura colunas salvas (por nome do cabeçalho) ou tenta adivinhar
+  DEF[t].campos.forEach(f=>{
+    const salvo=s.cfg.cols[f.id];
+    if(salvo&&s.headers.includes(salvo)) return;
+    const g=s.headers.find(h=>h&&f.guess.test(h));
+    s.cfg.cols[f.id]=g||'';
+  });
+  s.res=null;
+  renderCfg(t);document.getElementById('res-'+t).innerHTML='';
+}
+function setCol(t,id,v){ST[t].cfg.cols[id]=v;salvarLocal(t);if(id==='linha')renderCfg(t);}
+function setParam(t,k,v){
+  const num=typeof DEF[t].params[k]==='number';
+  ST[t].cfg.params[k]=num?(parseFloat(v)||0):v;salvarLocal(t);
+}
+function setAba(t,v){ST[t].sheet=v;carregarAba(t,true);}
+function setHr(t,v){ST[t].hr=Math.max(1,parseInt(v)||1);carregarAba(t,false);}
+function valoresLinha(t){
+  const s=ST[t],i=s.headers.indexOf(s.cfg.cols.linha);if(i<0)return [];
+  const m=new Map();
+  s.data.forEach(r=>{const v=r[i]==null?'':String(r[i]).trim();if(v)m.set(v,(m.get(v)||0)+1);});
+  return [...m.entries()].sort((a,b)=>a[0].localeCompare(b[0]));
+}
+function toggleLinha(t,v){
+  const c=ST[t].cfg;const k=norm(v);
+  const i=c.linhasSel.findIndex(x=>norm(x)===k);
+  if(i>=0)c.linhasSel.splice(i,1);else c.linhasSel.push(v);
+  salvarLocal(t);renderCfg(t);
+}
+function linhasTodas(t,on){
+  const c=ST[t].cfg;c.linhasSel=on?valoresLinha(t).map(x=>x[0]):[];c.todasLinhas=false;salvarLocal(t);renderCfg(t);
+}
+function renderCfg(t){
+  const s=ST[t],d=DEF[t],c=s.cfg;
+  const opts=(sel)=>'<option value="">(não usar)</option>'+s.headers.map(h=>h?`<option value="${esc(h)}" ${h===sel?'selected':''}>${esc(h)}</option>`:'').join('');
+  const campos=d.campos.map(f=>`<label class="f">${esc(f.label)} ${f.req?'<span class="req">*</span>':''}
+    <select onchange="setCol('${t}','${f.id}',this.value)">${opts(c.cols[f.id])}</select></label>`).join('');
+  let linhasHtml='';
+  if(t==='estoque'){
+    const vals=valoresLinha(t);
+    const selSet=new Set(c.linhasSel.map(norm));
+    linhasHtml=`<div class="card"><h2>3. Linhas que a TV deve monitorar</h2>
+      ${vals.length?`<div class="row" style="margin-bottom:10px">
+        <button class="btn" onclick="linhasTodas('estoque',true)">Marcar todas</button>
+        <button class="btn" onclick="linhasTodas('estoque',false)">Limpar</button>
+        <span class="note" style="margin:0">${c.linhasSel.length} de ${vals.length} marcada(s). A escolha fica salva para os próximos dias.</span></div>
+        <div class="chips">${vals.map(([v,n])=>`<span class="chip ${selSet.has(norm(v))?'on':''}" onclick="toggleLinha('estoque',this.dataset.v)" data-v="${esc(v)}">${esc(v)}<i>${n}</i></span>`).join('')}</div>`
+        :'<div class="note">Escolha a coluna "Linha / categoria" acima para listar as linhas.</div>'}
+      </div>`;
+  }
+  const P=c.params;
+  const params=t==='estoque'?`
+    <label class="f">Alertar com estoque geral até (un)<input type="number" min="0" value="${P.limite}" onchange="setParam('estoque','limite',this.value)"></label>
+    <label class="f">Próxima reposição em
+      <select onchange="setParam('estoque','reposicao',this.value)"><option value="30" ${P.reposicao==30?'selected':''}>30 dias</option><option value="60" ${P.reposicao==60?'selected':''}>60 dias</option></select></label>
+    <label class="f">A média de vendas da planilha é
+      <select onchange="setParam('estoque','mediaPor',this.value)">
+        <option value="mes" ${P.mediaPor==='mes'?'selected':''}>por mês (30 dias)</option>
+        <option value="semana" ${P.mediaPor==='semana'?'selected':''}>por semana</option>
+        <option value="dia" ${P.mediaPor==='dia'?'selected':''}>por dia</option></select></label>`
+  :`
+    <label class="f">Prazo ponto de fora (dias corridos)<input type="number" min="1" value="${P.prazoFora}" onchange="setParam('vendas','prazoFora',this.value)"></label>
+    <label class="f">Avisar ponto de fora faltando (dias)<input type="number" min="0" value="${P.avisoFora}" onchange="setParam('vendas','avisoFora',this.value)"></label>
+    <label class="f">Prazo Salvador (dias corridos)<input type="number" min="1" value="${P.prazoSsa}" onchange="setParam('vendas','prazoSsa',this.value)"></label>
+    <label class="f">Avisar Salvador faltando (dias)<input type="number" min="0" value="${P.avisoSsa}" onchange="setParam('vendas','avisoSsa',this.value)"></label>
+    <label class="f">Texto que identifica Salvador no ponto<input type="text" value="${esc(P.textoSalvador)}" onchange="setParam('vendas','textoSalvador',this.value)"></label>
+    <label class="f">Ignorar vendas vencidas há mais de (dias)<input type="number" min="0" value="${P.maxVencido}" onchange="setParam('vendas','maxVencido',this.value)"></label>`;
+  document.getElementById('cfg-'+t).innerHTML=`
+    <div class="card"><h2>2. Colunas que o sistema deve ler</h2>
+      <div class="row" style="margin-bottom:12px">
+        ${s.sheets.length>1?`<label class="f" style="min-width:220px">Aba<select onchange="setAba('${t}',this.value)">${s.sheets.map(n=>`<option ${n===s.sheet?'selected':''}>${esc(n)}</option>`).join('')}</select></label>`:''}
+        <label class="f" style="width:170px">Linha do cabeçalho<input type="number" min="1" value="${s.hr}" onchange="setHr('${t}',this.value)"></label>
+        <span class="note" style="margin:18px 0 0">${s.data.length} linhas de dados</span>
+      </div>
+      <div class="grid">${campos}</div>
+      <div class="note">* obrigatório.${t==='vendas'?' Na coluna Atendida valem: marcado (VERDADEIRO), SIM, X, 1, ✓. Vazio ou FALSO conta como não atendida.':''}</div>
+    </div>
+    ${linhasHtml}
+    <div class="card"><h2>${t==='estoque'?'4':'3'}. Regras</h2><div class="grid">${params}</div>
+      <div class="note">${t==='estoque'
+        ?'Dias de estoque = estoque geral ÷ média diária. Produtos sem venda na média não geram alerta. Sugestão = unidades que faltam para cobrir o prazo até a reposição.'
+        :'Vencimento = data de lançamento + prazo. O alerta começa quando faltam os dias configurados e continua (como vencida) até a venda ser marcada como atendida.'}</div>
+      <div class="row" style="margin-top:14px">
+        <button class="btn pri" onclick="processar('${t}')">Processar e conferir</button>
+        <button class="btn ok" id="pub-${t}" onclick="publicar('${t}')" disabled>Publicar na TV</button>
+      </div>
+    </div>`;
+}
+function validar(t){
+  const s=ST[t];
+  const falta=DEF[t].campos.filter(f=>f.req&&!s.cfg.cols[f.id]).map(f=>f.label);
+  if(falta.length){pill('Falta mapear: '+falta.join(', '),'err');return false;}
+  if(t==='estoque'&&!s.cfg.todasLinhas&&!s.cfg.linhasSel.length){pill('Marque ao menos uma linha','err');return false;}
+  return true;
+}
+function processar(t){
+  const s=ST[t];
+  if(!s.wb){pill('Anexe o arquivo primeiro','err');return;}
+  if(!validar(t))return;
+  s.res=t==='estoque'?processEstoque(s.headers,s.data,s.cfg):processVendas(s.headers,s.data,s.cfg);
+  renderRes(t);
+  document.getElementById('pub-'+t).disabled=false;
+}
+function renderRes(t){
+  const r=ST[t].res,a=r.alertas,box=document.getElementById('res-'+t);
+  if(t==='estoque'){
+    const crit=a.filter(x=>x.sev==='crit').length;
+    box.innerHTML=`<div class="card"><h2>Conferência</h2>
+      <div class="stats">
+        <div class="stat"><b>${a.length}</b>alertas</div>
+        <div class="stat"><b style="color:var(--red)">${crit}</b>críticos (7 dias ou menos)</div>
+        <div class="stat"><b>${r.stats.naLinha}</b>produtos nas linhas</div>
+        <div class="stat"><b>${r.stats.acima}</b>acima de ${r.params.limite} un</div>
+        <div class="stat"><b>${r.stats.semGiro}</b>sem venda (sem alerta)</div>
+        ${r.stats.semDados?`<div class="stat"><b>${r.stats.semDados}</b>sem estoque lido</div>`:''}
+      </div>
+      <div class="tbl"><table><thead><tr><th>Situação</th><th>Produto</th><th>Linha</th><th class="n">Geral</th><th class="n">Lojas</th><th class="n">Média/dia</th><th class="n">Dias</th><th>Sugestão</th></tr></thead><tbody>
+      ${a.slice(0,200).map(x=>`<tr><td><span class="sev ${x.sev}">${x.sev==='crit'?'CRÍTICO':(x.sev==='risco'?'RISCO':'ATENÇÃO')}</span></td>
+        <td title="${esc(x.desc)}">${esc(x.cod?x.cod+' · ':'')}${esc(x.desc)}</td><td>${esc(x.linha)}</td>
+        <td class="n">${x.geral}</td><td class="n">${x.lojas}</td><td class="n">${x.mediaDia}</td><td class="n">${x.dias}</td>
+        <td>${x.falta?`remanejar ~${x.falta} un${x.cobre?'':' (lojas não cobrem)'}`:'cobre até a reposição'}</td></tr>`).join('')}
+      </tbody></table></div>${a.length>200?`<div class="note">Mostrando 200 de ${a.length}. A TV recebe todos.</div>`:''}</div>`;
+  }else{
+    const venc=a.filter(x=>x.resta<0).length,emJanela=a.filter(x=>x.resta<=x.aviso).length;
+    box.innerHTML=`<div class="card"><h2>Conferência</h2>
+      <div class="stats">
+        <div class="stat"><b>${r.stats.total}</b>vendas na planilha</div>
+        <div class="stat"><b>${r.stats.atendidas}</b>atendidas</div>
+        <div class="stat"><b>${r.stats.abertas}</b>em aberto</div>
+        <div class="stat"><b style="color:var(--amber)">${emJanela}</b>na janela de aviso</div>
+        <div class="stat"><b style="color:var(--red)">${venc}</b>já vencidas</div>
+        ${r.stats.semData?`<div class="stat"><b>${r.stats.semData}</b>sem data lida</div>`:''}
+        ${r.stats.antigas?`<div class="stat"><b>${r.stats.antigas}</b>vencidas há muito tempo (ignoradas)</div>`:''}
+      </div>
+      <div class="tbl"><table><thead><tr><th>Situação</th><th>Venda</th><th>Ponto</th><th>Tipo</th><th>Lançada</th><th>Vence</th><th class="n">Dias</th></tr></thead><tbody>
+      ${a.filter(x=>x.resta<=x.aviso).slice(0,300).map(x=>`<tr><td><span class="sev ${x.resta<0?'venc':'risco'}">${x.resta<0?'VENCIDA':'A VENCER'}</span></td>
+        <td title="${esc(x.desc)}">${esc(x.ref)}${x.desc?' · '+esc(x.desc):''}</td><td>${esc(x.ponto)}</td>
+        <td><span class="sev ${x.tipo==='SSA'?'ssa':'fora'}">${x.tipo==='SSA'?'SALVADOR':'FORA'}</span></td>
+        <td>${fmtIso(x.data)}</td><td>${fmtIso(x.venc)}</td><td class="n">${x.resta}</td></tr>`).join('')}
+      </tbody></table></div>
+      <div class="note">A tabela mostra só quem já está na janela de aviso. A TV também recebe as que vão entrar nela nos próximos dias.</div></div>`;
+  }
+}
+
+/* ===== Supabase ===== */
+async function publicar(t){
+  const s=ST[t];if(!s.res)return;
+  pill('Publicando...','pend');
+  const dados=t==='estoque'?{alertas:s.res.alertas,stats:s.res.stats,params:s.res.params}
+    :{alertas:s.res.alertas.map(({resta,...x})=>x),stats:s.res.stats};
+  const {error}=await sb.from('tv_planilhas').upsert({tipo:t,atualizado_em:new Date().toISOString(),arquivo:s.fileName,config:s.cfg,dados},{onConflict:'tipo'});
+  if(error){console.error(error);pill('Erro ao publicar: '+(error.message||'?'),'err');return;}
+  pill('Publicado na TV','ok');
+  salvarLocal(t);mostrarUltima(t,new Date().toISOString(),s.fileName,s.res.alertas.length);
+}
+function mostrarUltima(t,quando,arq,n){
+  const d=new Date(quando);
+  const f=d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  document.getElementById('last-'+t).innerHTML=`Última publicação: <b>${f}</b>${arq?' · '+esc(arq):''}${n!=null?' · '+n+' alerta(s)':''}`;
+  document.getElementById(t==='estoque'?'tabEstoqueInfo':'tabVendasInfo').textContent='publicado '+f;
+}
+async function carregarPublicado(){
+  try{
+    const {data,error}=await sb.from('tv_planilhas').select('tipo,atualizado_em,arquivo,config,dados');
+    if(error)throw error;
+    (data||[]).forEach(r=>{
+      if(!ST[r.tipo])return;
+      if(r.config)mesclarCfg(r.tipo,r.config);
+      mostrarUltima(r.tipo,r.atualizado_em,r.arquivo,r.dados&&r.dados.alertas?r.dados.alertas.length:null);
+    });
+  }catch(e){console.warn('carregarPublicado',e);pill('Tabela tv_planilhas não encontrada. Rode o SQL antes.','err');}
+}
+
+['estoque','vendas'].forEach(t=>{carregarLocal(t);montarPane(t);});
+carregarPublicado();
+</script>
+</body>
+</html>
