@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2322c55e'/%3E%3Cpath d='M16 33l12 12 21-24' fill='none' stroke='%2304210f' stroke-width='9' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<title>Baixa de Vendas · VX Case</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<style>
+  :root{color-scheme:dark;--bg:#0a0b0e;--panel:#12141a;--line:#232833;--txt:#e6e8ec;--muted:#8b92a0;--inp:#0d0f14;--blue:#3b82f6;--green:#22c55e;--red:#ef4444;--amber:#eab308;--orange:#f97316}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:system-ui,-apple-system,'Segoe UI',sans-serif;background:var(--bg);color:var(--txt);padding:22px 16px 80px}
+  .wrap{max-width:860px;margin:0 auto}
+  h1{font-size:24px}
+  .sub{color:var(--muted);font-size:13px;margin:4px 0 18px;line-height:1.5}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:14px}
+  .card h2{font-size:14px;letter-spacing:.4px;margin-bottom:12px}
+  label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px}
+  input{width:100%;background:var(--inp);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:11px 12px;font-size:16px}
+  input:focus{outline:2px solid var(--blue);border-color:transparent}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+  .row>div{flex:1;min-width:180px}
+  button{background:var(--green);color:#04210f;border:0;border-radius:8px;padding:11px 18px;font-size:15px;font-weight:700;cursor:pointer}
+  button.sec{background:transparent;color:var(--muted);border:1px solid var(--line);font-weight:600;padding:7px 12px;font-size:13px}
+  button:disabled{opacity:.5;cursor:default}
+  .msg{margin-top:12px;padding:10px 12px;border-radius:8px;font-size:14px;line-height:1.45}
+  .msg.ok{background:#14301f;color:#bbf7d0}.msg.err{background:#3a1d20;color:#fca5a5}.msg.info{background:#1a2a3a;color:#93c5fd}
+  .item{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid var(--line)}
+  .item:first-of-type{border-top:0}
+  .it-info{min-width:0;flex:1}
+  .it-top{font-weight:700;font-size:15px}
+  .it-sub{color:var(--muted);font-size:13px;margin-top:2px;overflow-wrap:anywhere}
+  .tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;margin-left:8px;vertical-align:middle}
+  .t-venc{background:#3a1d20;color:#fca5a5}.t-hoje{background:#3a2a1a;color:#fdba74}.t-ok{background:#1a2a3a;color:#93c5fd}
+  .vazio{color:var(--muted);font-size:14px;padding:6px 0}
+  .pill{font-size:12px;color:var(--muted);margin-bottom:10px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Baixa de vendas</h1>
+  <div class="sub">Atendeu uma venda? Digite o número aqui. Ela sai da TV e do resumo do WhatsApp na hora.<br>Isso não altera o ERP: marque a venda como atendida lá também.</div>
+
+  <div class="card">
+    <h2>DAR BAIXA</h2>
+    <div class="row">
+      <div><label for="nome">Seu nome</label><input id="nome" placeholder="Ex.: Maria" autocomplete="off"></div>
+      <div><label for="num">Número da venda</label><input id="num" inputmode="numeric" placeholder="Ex.: 7599041" autocomplete="off"></div>
+      <button id="btn" onclick="darBaixa()">Dar baixa</button>
+    </div>
+    <div id="msg"></div>
+  </div>
+
+  <div class="card">
+    <h2>VENDAS EM ABERTO NA TV <span id="qtdAb" style="color:var(--muted);font-weight:400"></span></h2>
+    <div class="pill" id="pubInfo"></div>
+    <input id="busca" placeholder="Buscar por venda, produto ou destino" oninput="render()" autocomplete="off" style="margin-bottom:8px">
+    <div id="abertas"></div>
+  </div>
+
+  <div class="card">
+    <h2>BAIXAS ATIVAS <span id="qtdBx" style="color:var(--muted);font-weight:400"></span></h2>
+    <div id="baixas"></div>
+  </div>
+</div>
+<script>
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxsZml3a2x4aW5hdXR4b3VqcHJlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg5MDUzNTAsImV4cCI6MjEwNDQ4MTM1MH0.3dLtdv0Hvf93jXQHy2mjOTr4BJoCMHF_MzwUVEI5o38';
+const SB_URL='https://llfiwklxinautxoujpre.supabase.co';
+const sb=window.supabase.createClient(SB_URL,SB_KEY);
+let ABERTAS=[],BAIXAS=[],PUB=null;
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $=id=>document.getElementById(id);
+function hojeIso(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function dias(iso){const [y,m,d]=String(iso).slice(0,10).split('-').map(Number);return Math.round(Date.UTC(y,m-1,d)/86400000);}
+function fmtData(iso){const p=String(iso).slice(0,10).split('-');return p[2]+'/'+p[1];}
+function fmtHora(iso){const d=new Date(iso);return d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});}
+function aviso(t,k){$('msg').innerHTML='<div class="msg '+k+'">'+t+'</div>';}
+try{$('nome').value=localStorage.getItem('baixa_nome')||'';}catch(e){}
+
+async function carregar(){
+  try{
+    const {data,error}=await sb.from('tv_planilhas').select('tipo,atualizado_em,arquivo,dados').or('tipo.eq.vendas,tipo.like.baixa_%');
+    if(error)throw error;
+    PUB=null;BAIXAS=[];
+    (data||[]).forEach(r=>{
+      if(r.tipo==='vendas'){PUB=r;}
+      else if(r.tipo.indexOf('baixa_')===0){const d=r.dados||{};BAIXAS.push({ref:r.tipo.slice(6),nome:d.nome||r.arquivo||'',em:d.em||r.atualizado_em,desc:d.desc||'',ponto:d.ponto||''});}
+    });
+    ABERTAS=(PUB&&PUB.dados&&PUB.dados.alertas)||[];
+    BAIXAS.sort((a,b)=>String(b.em).localeCompare(String(a.em)));
+    render();
+  }catch(e){console.warn(e);aviso('Não consegui carregar os dados. Verifique a internet e se o SQL do tv_planilhas foi rodado.','err');}
+}
+function render(){
+  const bx=new Set(BAIXAS.map(b=>b.ref)),hoje=dias(hojeIso()),q=$('busca').value.trim().toLowerCase();
+  $('pubInfo').textContent=PUB?('Planilha publicada em '+fmtHora(PUB.atualizado_em)):'Nenhuma planilha de vendas publicada ainda.';
+  let l=ABERTAS.map(v=>({...v,resta:dias(v.venc)-hoje})).filter(v=>!bx.has(String(v.ref))).sort((a,b)=>a.resta-b.resta);
+  $('qtdAb').textContent='('+l.length+')';
+  if(q)l=l.filter(v=>[v.ref,v.cod,v.desc,v.filial,v.ponto].join(' ').toLowerCase().includes(q));
+  const mostra=l.slice(0,60);
+  $('abertas').innerHTML=mostra.length?mostra.map(v=>{
+    const tg=v.resta<0?'<span class="tag t-venc">VENCIDA HÁ '+(-v.resta)+'d</span>':v.resta===0?'<span class="tag t-hoje">VENCE HOJE</span>':'<span class="tag t-ok">faltam '+v.resta+'d</span>';
+    return '<div class="item"><div class="it-info"><div class="it-top">'+esc(v.ref)+tg+'</div><div class="it-sub">'+esc([v.cod,v.desc].filter(Boolean).join(' - '))+'<br>'+esc([v.filial,v.ponto].filter(Boolean).join(' - ').toUpperCase())+' · vence '+fmtData(v.venc)+'</div></div><button onclick="baixar(\''+esc(v.ref)+'\')">Dar baixa</button></div>';
+  }).join('')+(l.length>mostra.length?'<div class="vazio">Mostrando 60 de '+l.length+'. Use a busca.</div>':''):'<div class="vazio">'+(q?'Nada encontrado.':'Nenhuma venda em aberto.')+'</div>';
+  $('qtdBx').textContent='('+BAIXAS.length+')';
+  $('baixas').innerHTML=BAIXAS.length?BAIXAS.map(b=>'<div class="item"><div class="it-info"><div class="it-top">'+esc(b.ref)+'</div><div class="it-sub">'+esc(b.desc)+(b.desc?'<br>':'')+'por <b>'+esc(b.nome)+'</b> · '+fmtHora(b.em)+'</div></div><button class="sec" onclick="desfazer(\''+esc(b.ref)+'\')">Desfazer</button></div>').join(''):'<div class="vazio">Nenhuma baixa ativa.</div>';
+}
+function nomeOk(){
+  const n=$('nome').value.trim();
+  if(!n){aviso('Escreva seu nome primeiro.','err');$('nome').focus();return null;}
+  try{localStorage.setItem('baixa_nome',n);}catch(e){}
+  return n;
+}
+async function gravar(ref,nome){
+  const v=ABERTAS.find(x=>String(x.ref)===String(ref));
+  const desc=v?[v.cod,v.desc].filter(Boolean).join(' - '):'';
+  const ponto=v?[v.filial,v.ponto].filter(Boolean).join(' - '):'';
+  const em=new Date().toISOString();
+  const {error}=await sb.from('tv_planilhas').upsert({tipo:'baixa_'+ref,atualizado_em:em,arquivo:nome,config:{},dados:{ref,nome,em,desc,ponto}},{onConflict:'tipo'});
+  if(error){console.error(error);aviso('Erro ao registrar a baixa: '+esc(error.message||''),'err');return false;}
+  return v||true;
+}
+async function baixar(ref){
+  const nome=nomeOk();if(!nome)return;
+  const r=await gravar(ref,nome);
+  if(r){aviso('Baixa da venda <b>'+esc(ref)+'</b> registrada. Ela sai da TV em alguns segundos.','ok');await carregar();}
+}
+async function darBaixa(){
+  const nome=nomeOk();if(!nome)return;
+  const ref=$('num').value.replace(/\D/g,'');
+  if(!ref){aviso('Digite o número da venda.','err');$('num').focus();return;}
+  if(BAIXAS.some(b=>b.ref===ref)){aviso('A venda <b>'+esc(ref)+'</b> já tem baixa.','info');return;}
+  const v=ABERTAS.find(x=>String(x.ref)===ref);
+  if(!v&&!confirm('A venda '+ref+' não está na lista de abertas da TV. Registrar a baixa mesmo assim?'))return;
+  $('btn').disabled=true;
+  const r=await gravar(ref,nome);
+  $('btn').disabled=false;
+  if(r){
+    aviso('Baixa da venda <b>'+esc(ref)+'</b>'+(v?' ('+esc(v.desc||'')+')':'')+' registrada. Ela sai da TV em alguns segundos.','ok');
+    $('num').value='';$('num').focus();await carregar();
+  }
+}
+async function desfazer(ref){
+  if(!confirm('Desfazer a baixa da venda '+ref+'? Ela volta a aparecer na TV.'))return;
+  const {error}=await sb.from('tv_planilhas').delete().eq('tipo','baixa_'+ref);
+  if(error){aviso('Erro ao desfazer: '+esc(error.message||''),'err');return;}
+  aviso('Baixa da venda <b>'+esc(ref)+'</b> desfeita.','info');await carregar();
+}
+$('num').addEventListener('keydown',e=>{if(e.key==='Enter')darBaixa();});
+carregar();
+sb.channel('baixas').on('postgres_changes',{event:'*',schema:'public',table:'tv_planilhas'},()=>carregar()).subscribe();
+</script>
+</body>
+</html>
